@@ -2,10 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
-import 'cache/cache_downloader.dart';
-import 'cache/cache_manager.dart';
-import 'notification.dart';
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -13,22 +9,33 @@ import 'package:path_provider/path_provider.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:uuid/uuid.dart';
 
+import 'PhoneStrategy.dart';
 import 'applifecycle.dart';
 import 'cache/cache.dart';
+import 'cache/cache_downloader.dart';
+import 'cache/cache_manager.dart';
+import 'errors.dart';
+import 'loop.dart';
+import 'network_settings.dart';
+import 'notification.dart';
 import 'playable.dart';
 import 'playing.dart';
-import 'loop.dart';
-import 'errors.dart';
-import 'PhoneStrategy.dart';
-import 'network_settings.dart';
 
+export 'PhoneStrategy.dart';
 export 'applifecycle.dart';
+export 'errors.dart';
+export 'loop.dart';
 export 'notification.dart';
 export 'playable.dart';
 export 'playing.dart';
-export 'loop.dart';
-export 'errors.dart';
-export 'PhoneStrategy.dart';
+
+/// This allows a value of type T or T?
+/// to be treated as a value of type T?.
+///
+/// We use this so that APIs that have become
+/// non-nullable can still be used with `!` and `?`
+/// to support older versions of the API as well.
+T? _ambiguate<T>(T? value) => value;
 
 const bool _DEFAULT_AUTO_START = true;
 const bool _DEFAULT_RESPECT_SILENT_MODE = false;
@@ -64,6 +71,7 @@ class PlayerEditor {
   const PlayerEditor(this.assetsAudioPlayer);
 
   final AssetsAudioPlayer assetsAudioPlayer;
+
   PlayerEditor._(this.assetsAudioPlayer);
 
   void onAudioRemovedAt(int index) {
@@ -177,6 +185,7 @@ class AssetsAudioPlayer {
       }
     });
   }
+
   //endregion
 
   static final uuid = Uuid();
@@ -283,14 +292,19 @@ class AssetsAudioPlayer {
   ///             return Text(isPlaying ? 'Pause' : 'Play');
   ///         }),
   ValueStream<bool> get isPlaying => _isPlaying.stream;
+
   String get getCurrentAudioTitle =>
       _current.valueOrNull?.audio.audio.metas.title ?? '';
+
   String get getCurrentAudioArtist =>
       _current.valueOrNull?.audio.audio.metas.artist ?? '';
+
   Map<String, dynamic> get getCurrentAudioextra =>
       _current.valueOrNull?.audio.audio.metas.extra ?? <String, dynamic>{};
+
   String get getCurrentAudioAlbum =>
       _current.valueOrNull?.audio.audio.metas.album ?? '';
+
   MetasImage? get getCurrentAudioImage =>
       _current.valueOrNull?.audio.audio.metas.image;
 
@@ -372,6 +386,7 @@ class AssetsAudioPlayer {
 
   final PublishSubject<CacheDownloadInfos> _cacheDownloadInfos =
       PublishSubject<CacheDownloadInfos>();
+
   Stream<CacheDownloadInfos> get cacheDownloadInfos =>
       _cacheDownloadInfos.stream;
 
@@ -434,11 +449,14 @@ class AssetsAudioPlayer {
   bool get respectSilentMode => _respectSilentMode;
 
   bool _showNotification = false;
+
   bool get showNotification => _showNotification;
+
   set showNotification(bool newValue) {
     _showNotification = newValue;
 
-    /* await */ _sendChannel.invokeMethod(
+    /* await */
+    _sendChannel.invokeMethod(
         'showNotification', {'id': id, 'show': _showNotification});
   }
 
@@ -520,7 +538,7 @@ class AssetsAudioPlayer {
     _playerEditor = null;
 
     if (_lifecycleObserver != null) {
-      WidgetsBinding?.instance?.removeObserver(_lifecycleObserver!);
+      _ambiguate(WidgetsBinding.instance)!.removeObserver(_lifecycleObserver!);
       _lifecycleObserver = null;
     }
   }
@@ -690,7 +708,7 @@ class AssetsAudioPlayer {
       }
     });
     if (_lifecycleObserver != null) {
-      WidgetsBinding?.instance?.addObserver(_lifecycleObserver!);
+      _ambiguate(WidgetsBinding.instance)!.addObserver(_lifecycleObserver!);
     }
   }
 
@@ -1039,10 +1057,8 @@ class AssetsAudioPlayer {
               audio.playSpeed ??
               this.playSpeed.valueOrNull ??
               defaultPlaySpeed,
-          'pitch': pitch ??
-              audio.pitch ??
-              this.pitch.valueOrNull ??
-              defaultPitch,
+          'pitch':
+              pitch ?? audio.pitch ?? this.pitch.valueOrNull ?? defaultPitch,
         };
         if (seek != null) {
           params['seek'] = seek.inMilliseconds.round();
@@ -1057,14 +1073,13 @@ class AssetsAudioPlayer {
               audio.networkHeaders ?? networkSettings.defaultHeaders;
         }
 
-        if(audio.drmConfiguration != null){
-          var drmMap  ={};
+        if (audio.drmConfiguration != null) {
+          var drmMap = {};
           drmMap['drmType'] = audio.drmConfiguration!.drmType.toString();
-          if(audio.drmConfiguration!.drmType==DrmType.clearKey){
+          if (audio.drmConfiguration!.drmType == DrmType.clearKey) {
             drmMap['clearKey'] = audio.drmConfiguration!.clearKey;
           }
           params['drmConfiguration'] = drmMap;
-
         }
 
         //region notifs
